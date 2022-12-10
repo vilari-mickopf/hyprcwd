@@ -1,0 +1,5 @@
+#!/bin/sh
+
+pid=$(hyprctl activewindow -j | jq '.pid')
+ppid=$(pgrep --newest --parent "$pid")
+readlink /proc/"$ppid"/cwd || echo "$HOME"
