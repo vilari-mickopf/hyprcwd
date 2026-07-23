@@ -1,6 +1,6 @@
 #!/bin/sh
 
 pid=$(hyprctl activewindow -j | jq '.pid')
-ppid=$(pgrep --newest --parent "$pid")
-dir=$(readlink /proc/"$ppid"/cwd || echo "$HOME")
+shell_pid=$(pgrep -P "$pid" bash)
+dir=$(readlink "/proc/$shell_pid/cwd" 2>/dev/null)
 [ -d "$dir" ] && echo "$dir" || echo "$HOME"
