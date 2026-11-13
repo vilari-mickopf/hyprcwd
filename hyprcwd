@@ -1,6 +1,16 @@
 #!/bin/sh
 
-pid=$(hyprctl activewindow -j | jq '.pid')
-shell_pid=$(pgrep -P "$pid" bash)
+pid=$(hyprctl activewindow -j | jq -r '.pid')
+
+# Find the shell process (bash or zsh)
+shell_pid=$(pgrep -P "$pid" -x zsh | head -n 1)
+
+if [ -z "$shell_pid" ]; then
+  shell_pid=$(pgrep -P "$pid" -x bash | head -n 1)
+fi
+
+# Get the shell's working directory
 dir=$(readlink "/proc/$shell_pid/cwd" 2>/dev/null)
-[ -d "$dir" ] && echo "$dir" || echo "$HOME"
+
+# Fall back to HOME if unavailable
+[ -n "$dir" ] && [ -d "$dir" ] && echo "$dir" || echo "$HOME"
