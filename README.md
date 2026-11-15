@@ -1,6 +1,6 @@
 # hyprcwd
 
-xcwd for Hyprland.
+xcwd for Hyprland - Print the working directory of the focused Hyprland window.
 
 
 ## Dependencies
