@@ -35,8 +35,11 @@ hyprcwd [-f|--follow-job]
   -f, --follow-job  Prefer the foreground job's cwd over the terminal session's cwd.
 ```
 
-`--follow-job` can be used if you have a long-running process running in for example `/tmp`, and you want to open a new terminal in that location, you can use `hyprcwd --follow-job` and get `/tmp` instead of shell's directory.
-Similarly, if you launch nvim and then change its working directory manually or through a session plugin such as startify, the flag returns nvim's updated directory instead of the directory it was launched from. In case of terminals spawned inside of nvim (with `:terminal`), the inner terminal has its own tty and the script selects the outer terminal session first and doesn't detect which nvim buffer is active.
+Use `--follow-job` to return the foreground job's working directory instead of the shell's. For example, if a long-running process is running in `/tmp`, `hyprcwd --follow-job` returns `/tmp`, allowing you to open a new terminal there.
+
+Similarly, if you launch neovim and change its working directory manually or through a session plugin such as startify, the flag returns neovim’s updated directory rather than its launch directory.
+
+Limitation: Terminals opened inside neovim with `:terminal` have their own tty. The script selects the outer terminal session first and cannot detect which neovim buffer is active, so it returns neovim's working directory rather than the inner terminal's.
 
 Useful bindings for `hyprland.lua` (change `ghostty` to your terminal of choice):
 
