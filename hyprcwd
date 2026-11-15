@@ -1,6 +1,87 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-pid=$(hyprctl activewindow -j | jq '.pid')
-ppid=$(pgrep --newest --parent "$pid")
-dir=$(readlink /proc/"$ppid"/cwd || echo "$HOME")
-[ -d "$dir" ] && echo "$dir" || echo "$HOME"
+set -u
+
+usage() {
+    printf 'Working directory of the focused Hyprland window, for launching terminals.\n\n'
+    printf 'Usage: %s [-f|--follow-job]\n' "${0##*/}"
+    printf '  -f, --follow-job  Prefer the foreground job\047s cwd over the terminal session\047s cwd.\n'
+}
+
+# Prefer the terminal session's cwd unless explicitly following its job.
+follow_job=0
+for arg in "$@"; do
+    case "$arg" in
+        -f|--follow-job) follow_job=1 ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'Unknown argument: %s\n' "$arg" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+terminal_sessions() {
+    # Find descendant terminal sessions breadth first using one process snapshot
+    ps -e -o pid=,ppid=,sid=,tpgid=,tty= 2>/dev/null |
+        awk -v root="$1" '
+            {
+                children[$2] = children[$2] " " $1
+                if ($1 == $3 && $5 != "?") {
+                    sessions[$1] = 1
+                    foreground[$1] = $4
+                }
+            }
+            END {
+                queue[tail++] = root
+                while (head < tail) {
+                    parent = queue[head++]
+                    count = split(children[parent], pids, " ")
+                    for (i = 1; i <= count; i++) {
+                        p = pids[i]
+                        queue[tail++] = p
+                        if (p in sessions)
+                            print p, foreground[p]
+                    }
+                }
+            }
+        '
+}
+
+cwd_of() {
+    local d
+    d=$(readlink "/proc/$1/cwd" 2>/dev/null) || return 1
+    [ -d "$d" ] || return 1
+    printf '%s\n' "$d"
+}
+
+win_pid=$(hyprctl -j activewindow 2>/dev/null | jq -r '.pid // empty')
+if [ -n "$win_pid" ]; then
+    # Find a terminal session leader instead of a newer background helper
+    while read -r p foreground; do
+        if [ "$follow_job" == 1 ] && [ "$foreground" -gt 0 ]; then
+            if d=$(cwd_of "$foreground"); then
+                printf '%s\n' "$d"
+                exit 0
+            fi
+        fi
+
+        # Use the session leader's cwd
+        if d=$(cwd_of "$p"); then
+            printf '%s\n' "$d"
+            exit 0
+        fi
+    done < <(terminal_sessions "$win_pid")
+
+    # No terminal session found, fallback to the window process itself
+    if d=$(cwd_of "$win_pid"); then
+        printf '%s\n' "$d"
+        exit 0
+    fi
+fi
+
+printf '%s\n' "$HOME"
